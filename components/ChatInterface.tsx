@@ -1,137 +1,77 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { generateCodingQuestion } from '../services/geminiService';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Sender, ChatMessage } from '../types';
-import { generateContent } from '../services/geminiService';
-
-// Define MessageBubble outside the main component to prevent re-creation on every render.
-interface MessageBubbleProps {
-  message: ChatMessage;
+interface ChatInterfaceProps {
+  setActiveView: (view: string) => void;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-  const isUser = message.sender === Sender.USER;
-  
-  // Basic markdown-like rendering for code blocks
-  const renderText = (text: string) => {
-    const parts = text.split(/(\`\`\`[\s\S]*?\`\`\`)/g);
-    return parts.map((part, index) => {
-      if (part.startsWith('```') && part.endsWith('```')) {
-        const code = part.slice(3, -3).trim();
-        return (
-          <pre key={index} className="bg-gray-900 rounded-md p-3 my-2 overflow-x-auto text-sm">
-            <code>{code}</code>
-          </pre>
-        );
-      }
-      return <p key={index} className="whitespace-pre-wrap">{part}</p>;
-    });
-  };
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ setActiveView }) => {
+  const [challenge, setChallenge] = useState('Loading challenge...');
+  const [isChallengeLoading, setIsChallengeLoading] = useState(true);
 
-  return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} my-2`}>
-      <div className={`max-w-xs md:max-w-md lg:max-w-2xl rounded-lg px-4 py-2 shadow-md ${isUser ? 'bg-cyan-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
-        {renderText(message.text)}
-      </div>
-    </div>
-  );
-};
+  const POPULAR_TOPICS = ['Arrays', 'Linked Lists', 'Stacks', 'Queues', 'Trees', 'Graphs', 'Sorting', 'Dynamic Programming'];
 
-// Main ChatInterface Component
-const ChatInterface: React.FC = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMessages([
-      {
-        id: 'initial-message',
-        sender: Sender.MODEL,
-        text: 'I am your dedicated Data Structures and Algorithms instructor. Ask me anything on the topic. Do not waste my time with pleasantries or off-topic questions.'
-      }
-    ]);
+  const fetchChallenge = useCallback(async () => {
+    setIsChallengeLoading(true);
+    const newChallenge = await generateCodingQuestion();
+    setChallenge(newChallenge);
+    setIsChallengeLoading(false);
   }, []);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleSendMessage = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedInput = inputValue.trim();
-    if (!trimmedInput || isLoading) return;
-
-    const userMessage: ChatMessage = {
-      id: Date.now().toString(),
-      sender: Sender.USER,
-      text: trimmedInput,
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const modelResponseText = await generateContent(trimmedInput);
-      const modelMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: Sender.MODEL,
-        text: modelResponseText,
-      };
-      setMessages(prev => [...prev, modelMessage]);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
-      setError(`Failed to get response: ${errorMessage}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [inputValue, isLoading]);
+    fetchChallenge();
+  }, [fetchChallenge]);
+  
+  const handleTopicClick = () => {
+    setActiveView('tutorials');
+  }
 
   return (
-    <div className="flex flex-col flex-grow h-[calc(100vh-64px)]">
-      <div className="flex-grow overflow-y-auto p-4 space-y-4">
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
-        {isLoading && (
-          <div className="flex justify-start my-2">
-            <div className="max-w-xs md:max-w-md lg:max-w-2xl rounded-lg px-4 py-2 shadow-md bg-gray-700 text-gray-200 rounded-bl-none">
-                <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse [animation-delay:0.2s]"></div>
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse [animation-delay:0.4s]"></div>
-                </div>
-            </div>
+    <div className="flex flex-col flex-grow h-full overflow-y-auto p-6 space-y-8 bg-gray-900">
+      <header>
+        <h1 className="text-3xl font-bold text-white">Dashboard</h1>
+        <p className="text-gray-400 mt-1">Your DSA learning command center.</p>
+      </header>
+      
+      <section className="bg-gray-800/50 rounded-lg p-5 shadow-lg border border-gray-700">
+        <div className="flex justify-between items-center mb-2">
+            <h2 className="text-lg font-bold text-cyan-400">Today's Challenge</h2>
+            <button 
+                onClick={fetchChallenge} 
+                disabled={isChallengeLoading}
+                className="text-sm bg-cyan-600/50 hover:bg-cyan-600/80 disabled:opacity-50 disabled:cursor-wait text-white font-semibold py-1 px-3 rounded-full transition-colors"
+            >
+                {isChallengeLoading ? 'Loading...' : 'New Question'}
+            </button>
+        </div>
+        <p className="text-gray-300 whitespace-pre-wrap">{challenge}</p>
+      </section>
+
+      <section>
+          <h2 className="text-xl font-bold text-cyan-400 mb-4">Explore Topics</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {POPULAR_TOPICS.map(topic => (
+                  <button 
+                      key={topic}
+                      onClick={handleTopicClick}
+                      className="bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-3 px-4 rounded-lg text-center transition-all duration-200 hover:scale-105"
+                  >
+                      {topic}
+                  </button>
+              ))}
           </div>
-        )}
-        <div ref={chatEndRef} />
-      </div>
-      {error && <div className="p-4 text-center text-red-400 bg-red-900/50">{error}</div>}
-      <div className="bg-gray-800 p-3 md:p-4 border-t border-gray-700 sticky bottom-0">
-        <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Ask a DSA question..."
-            className="flex-grow bg-gray-700 rounded-full py-2 px-4 text-gray-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50"
-            disabled={isLoading}
-          />
+      </section>
+
+      <section className="bg-cyan-900/30 rounded-lg p-5 text-center border border-cyan-700/50">
+          <h2 className="text-xl font-bold text-cyan-300 mb-2">Have a Question?</h2>
+          <p className="text-gray-300 mb-4">Jump into the Playground to chat with your AI instructor directly.</p>
           <button
-            type="submit"
-            disabled={isLoading || !inputValue.trim()}
-            className="bg-cyan-600 text-white rounded-full p-2.5 hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+            onClick={() => setActiveView('playground')}
+            className="bg-cyan-600 text-white font-bold rounded-full py-2 px-6 hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-            </svg>
+            Go to Playground
           </button>
-        </form>
-      </div>
+      </section>
     </div>
   );
 };
