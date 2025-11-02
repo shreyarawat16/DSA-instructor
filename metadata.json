@@ -1,0 +1,5 @@
+{
+  "name": "Copy of DSA Instructor AI",
+  "description": "An AI-powered instructor to help you learn Data Structures and Algorithms. The instructor will only answer questions related to DSA and will be rude if asked off-topic questions.",
+  "requestFramePermissions": []
+}
